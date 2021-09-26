@@ -81,8 +81,8 @@ _ldecompress(lua_State *L) {
 
 
 static const luaL_Reg fastlz_lib[] = {
-	{ "init", _lcompress},
-	{ "fini", _ldecompress},
+	{ "compress", _lcompress},
+	{ "decompress", _ldecompress},
 
 	{ NULL, NULL }
 };
