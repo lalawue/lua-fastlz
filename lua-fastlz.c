@@ -66,17 +66,32 @@ _ldecompress(lua_State *L) {
 	size_t in_sz = 0, out_sz = 0;
 	const char *in_str = lua_tolstring(L, 1, &in_sz);
 	char *out_str = NULL;
-	int ret = 0;
-	double ratio = 1.5;
+	int out_len = 0;
+	int ratio = 1;
 	do {
-		ratio += 0.36;
-		out_sz = (size_t)((double)in_sz * ratio);
+		ratio *= 2;
+		out_sz = (size_t)(in_sz * ratio);
 		out_str = (char *)realloc(out_str, out_sz);
-		ret = fastlz_decompress(in_str, (int)in_sz, out_str, (int)out_sz);
-	} while (ret == 0);
-	lua_pushlstring(L, out_str, ret);
+		if (out_str == NULL) {
+			break;
+		}
+		out_len = fastlz_decompress(in_str, (int)in_sz, out_str, (int)out_sz);
+	} while (out_len <= 0 && ratio <= 8);
+
+	int ret = 0;
+	if (out_len > 0) {
+		lua_pushlstring(L, out_str, out_len);
+		ret = 1;
+	} else {
+		char err_msg[32];
+		memset(err_msg, 0, 32);
+		snprintf(err_msg, 32, "failed to decompress with ratio: %d", ratio);
+		lua_pushboolean(L, 0);
+		lua_pushstring(L, err_msg);
+		ret = 2;
+	}
 	free(out_str);
-	return 1;
+	return ret;
 }
 
 
