@@ -72,7 +72,7 @@ _ldecompress(lua_State *L) {
 		ratio += 0.36;
 		out_sz = (size_t)((double)in_sz * ratio);
 		out_str = (char *)realloc(out_str, out_sz);
-		ret = fastlz_decompress(in_str, in_str, out_str, (int)out_sz);
+		ret = fastlz_decompress(in_str, (int)in_sz, out_str, (int)out_sz);
 	} while (ret == 0);
 	lua_pushlstring(L, out_str, ret);
 	free(out_str);
