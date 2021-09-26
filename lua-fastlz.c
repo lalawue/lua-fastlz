@@ -44,7 +44,7 @@ _lcompress(lua_State *L) {
 
 	char *out_str = (char *)calloc(1, out_sz);
 	if (out_str == NULL) {
-		lua_pushboolean(L, 0)
+		lua_pushboolean(L, 0);
 		lua_pushstring(L, "failed to malloc");
 		return 2;
 	}
@@ -57,8 +57,8 @@ _lcompress(lua_State *L) {
 
 static int
 _ldecompress(lua_State *L) {
-	if (!lua_type(L, 1) != LUA_TSTRING) {
-		lua_pushboolean(L, 0)
+	if (lua_type(L, 1) != LUA_TSTRING) {
+		lua_pushboolean(L, 0);
 		lua_pushstring(L, "invalid input params");
 		return 2;
 	}
