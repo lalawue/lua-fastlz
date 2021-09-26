@@ -27,9 +27,9 @@ _check_type(lua_State *L, int *types, int count) {
 }
 
 static int
-_compress(lua_State *L) {
+_lcompress(lua_State *L) {
 	if (lua_type(L, 1) != LUA_TSTRING) {
-		lua_pushboolean(L, false);
+		lua_pushboolean(L, 0);
 		lua_pushstring(L, "invalid input params");
 		return 2;
 	}
@@ -37,14 +37,14 @@ _compress(lua_State *L) {
 	size_t in_sz = 0, out_sz = 0;
 	const char *in_str = lua_tolstring(L, 1, &in_sz);
 	if (in_sz < 80) {
-		out_sz = 128
+		out_sz = 128;
 	} else {
 		out_sz = (size_t)((double)in_sz * 1.06);
 	}
 
-	char *out_str = (char *)colloc(1, out_sz);
+	char *out_str = (char *)calloc(1, out_sz);
 	if (out_str == NULL) {
-		lua_pushboolean(L, false)
+		lua_pushboolean(L, 0)
 		lua_pushstring(L, "failed to malloc");
 		return 2;
 	}
@@ -56,9 +56,9 @@ _compress(lua_State *L) {
 }
 
 static int
-_decompress(lua_State *L) {
+_ldecompress(lua_State *L) {
 	if (!lua_type(L, 1) != LUA_TSTRING) {
-		lua_pushboolean(L, false)
+		lua_pushboolean(L, 0)
 		lua_pushstring(L, "invalid input params");
 		return 2;
 	}
@@ -70,28 +70,19 @@ _decompress(lua_State *L) {
 	double ratio = 1.5;
 	do {
 		ratio += 0.36;
-		out_sz = (size_t)((double)in_sz * ratio)
+		out_sz = (size_t)((double)in_sz * ratio);
 		out_str = (char *)realloc(out_str, out_sz);
-		ret = fastlz_decompress(in_str, in_str, (int)out_sz);
+		ret = fastlz_decompress(in_str, in_str, out_str, (int)out_sz);
 	} while (ret == 0);
 	lua_pushlstring(L, out_str, ret);
 	free(out_str);
 	return 1;
 }
 
-/* decompress */
-static int
-_decompress(lua_State *L) {
-	int ret = mnet_report(0);
-	lua_pushinteger(L, ret);
-	return 1;
-}
-
-
 
 static const luaL_Reg fastlz_lib[] = {
-	{ "init", _compress},
-	{ "fini", _decompress},
+	{ "init", _lcompress},
+	{ "fini", _ldecompress},
 
 	{ NULL, NULL }
 };
