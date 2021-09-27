@@ -26,35 +26,58 @@ _check_type(lua_State *L, int *types, int count) {
 	return 1;
 }
 
+/* .compress(string) or .compress(level, string), store original size in the very beginning
+ */
 static int
 _lcompress(lua_State *L) {
-	if (lua_type(L, 1) != LUA_TSTRING) {
+	int index = 1;
+	int level = 1;
+
+	if (lua_type(L, index) == LUA_TNUMBER) {
+		level = lua_tonumber(L, index);
+		index += 1;
+	}
+
+	if (lua_type(L, index) != LUA_TSTRING) {
 		lua_pushboolean(L, 0);
 		lua_pushstring(L, "invalid input params");
 		return 2;
 	}
 
 	size_t in_sz = 0, out_sz = 0;
-	const char *in_str = lua_tolstring(L, 1, &in_sz);
+	const uint8_t *in_str = (const uint8_t*)lua_tolstring(L, index, &in_sz);
 	if (in_sz < 80) {
 		out_sz = 128;
 	} else {
-		out_sz = (size_t)((double)in_sz * 1.06);
+		out_sz = (size_t)((double)in_sz * 1.06) + 4;
 	}
 
-	char *out_str = (char *)calloc(1, out_sz);
+	uint8_t *out_str = (uint8_t *)malloc(out_sz);
 	if (out_str == NULL) {
 		lua_pushboolean(L, 0);
 		lua_pushstring(L, "failed to malloc");
 		return 2;
 	}
 
-	int ret = fastlz_compress(in_str, (int)in_sz, out_str);
-	lua_pushlstring(L, (const char *)out_str, ret);
+	int ret = 0;
+	if (level == 1 || level == 2) {
+		ret = fastlz_compress_level(level, in_str, (int)in_sz, out_str + 4);
+	} else {
+		ret = fastlz_compress(in_str, (int)in_sz, out_str + 4);
+	}
+
+	out_str[0] = (ret >> 24) & 0xff;
+	out_str[1] = (ret >> 16) & 0xff;
+	out_str[2] = (ret >> 8) & 0xff;
+	out_str[3] = ret & 0xff;
+
+	lua_pushlstring(L, (const char *)out_str, ret + 4);
 	free(out_str);
 	return 1;
 }
 
+/* decompress string
+ */
 static int
 _ldecompress(lua_State *L) {
 	if (lua_type(L, 1) != LUA_TSTRING) {
@@ -64,41 +87,34 @@ _ldecompress(lua_State *L) {
 	}
 
 	size_t in_sz = 0, out_sz = 0;
-	const char *in_str = lua_tolstring(L, 1, &in_sz);
-	char *out_str = NULL;
-	int out_len = 0;
-	int ratio = 1;
-	do {
-		ratio *= 2;
-		out_sz = (size_t)(in_sz * ratio);
-		out_str = (char *)realloc(out_str, out_sz);
-		if (out_str == NULL) {
-			break;
-		}
-		out_len = fastlz_decompress(in_str, (int)in_sz, out_str, (int)out_sz);
-	} while (out_len <= 0 && ratio <= 8);
+	const uint8_t *in_str = (const uint8_t *)lua_tolstring(L, 1, &in_sz);
+	uint8_t *out_str = NULL;
 
+	out_sz = (in_str[0] << 24) | (in_str[1] << 16) | (in_str[2] << 8) | in_str[3];
+	out_str = (uint8_t *)malloc(out_sz + 8);
+	if (out_str == NULL) {
+		lua_pushboolean(L, 0);
+		lua_pushstring(L, "failed to malloc decompress space");
+		return 2;
+	}
+
+	int out_len = fastlz_decompress(in_str + 4, (int)in_sz - 4, out_str, (int)out_sz);
 	int ret = 0;
 	if (out_len > 0) {
-		lua_pushlstring(L, out_str, out_len);
+		lua_pushlstring(L, (const char *)out_str, out_len);
 		ret = 1;
 	} else {
-		char err_msg[32];
-		memset(err_msg, 0, 32);
-		snprintf(err_msg, 32, "failed to decompress with ratio: %d", ratio);
 		lua_pushboolean(L, 0);
-		lua_pushstring(L, err_msg);
+		lua_pushstring(L, "failed to decompress");
 		ret = 2;
 	}
 	free(out_str);
 	return ret;
 }
 
-
 static const luaL_Reg fastlz_lib[] = {
 	{ "compress", _lcompress},
 	{ "decompress", _ldecompress},
-
 	{ NULL, NULL }
 };
 
