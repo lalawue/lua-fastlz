@@ -67,10 +67,10 @@ _lcompress(lua_State *L) {
 		ret = fastlz_compress(in_str, (int)in_sz, out_str + 4);
 	}
 
-	out_str[0] = (ret >> 24) & 0xff;
-	out_str[1] = (ret >> 16) & 0xff;
-	out_str[2] = (ret >> 8) & 0xff;
-	out_str[3] = ret & 0xff;
+	out_str[0] = (in_sz >> 24) & 0xff;
+	out_str[1] = (in_sz >> 16) & 0xff;
+	out_str[2] = (in_sz >> 8) & 0xff;
+	out_str[3] = in_sz & 0xff;
 
 	lua_pushlstring(L, (const char *)out_str, ret + 4);
 	free(out_str);
@@ -91,8 +91,8 @@ _ldecompress(lua_State *L) {
 	const uint8_t *in_str = (const uint8_t *)lua_tolstring(L, 1, &in_sz);
 	uint8_t *out_str = NULL;
 
-	out_sz = (in_str[0] << 24) | (in_str[1] << 16) | (in_str[2] << 8) | in_str[3];
-	out_str = (uint8_t *)malloc(out_sz + 8);
+	out_sz = ((in_str[0] << 24) | (in_str[1] << 16) | (in_str[2] << 8) | in_str[3]) + 8;
+	out_str = (uint8_t *)malloc(out_sz);
 	if (out_str == NULL) {
 		lua_pushboolean(L, 0);
 		lua_pushstring(L, "failed to malloc decompress space");
